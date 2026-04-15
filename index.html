@@ -149,6 +149,12 @@
       line-height: 1;
     }
 
+    .answer-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
     .answer-input {
       background: rgba(255,255,255,0.08);
       border: 2px solid rgba(255,255,255,0.2);
@@ -158,13 +164,34 @@
       font-size: 2rem;
       font-weight: 700;
       text-align: center;
-      width: 160px;
+      width: 140px;
       padding: 12px 16px;
       outline: none;
       transition: border-color 0.2s;
+      -moz-appearance: textfield;
     }
+    .answer-input::-webkit-outer-spin-button,
+    .answer-input::-webkit-inner-spin-button { -webkit-appearance: none; }
     .answer-input:focus { border-color: var(--accent); }
     .answer-input::placeholder { color: rgba(255,255,255,0.2); }
+
+    .submit-btn {
+      background: var(--accent);
+      border: none;
+      border-radius: 14px;
+      color: #0f1b36;
+      font-size: 1.8rem;
+      font-weight: 900;
+      width: 60px;
+      height: 60px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.12s, opacity 0.12s;
+      flex-shrink: 0;
+    }
+    .submit-btn:active { transform: scale(0.92); }
 
     .feedback-msg {
       font-size: 1.1rem;
@@ -286,7 +313,10 @@
     <div class="card-flash" id="card-flash"></div>
     <div class="q-counter" id="q-counter">שאלה 1 מתוך 20</div>
     <div class="question-text" id="question-text">? × ? = ?</div>
-    <input class="answer-input" id="answer-input" type="number" inputmode="numeric" placeholder="?" autocomplete="off" />
+    <form class="answer-row" id="answer-form" action="javascript:void(0)">
+      <input class="answer-input" id="answer-input" type="number" inputmode="numeric" placeholder="?" autocomplete="off" enterkeyhint="go" />
+      <button type="submit" class="submit-btn">✓</button>
+    </form>
     <div class="feedback-msg" id="feedback-msg"></div>
   </div>
 
@@ -697,8 +727,9 @@ function endGame() {
 $startBtn.addEventListener('click', startGame);
 $replayBtn.addEventListener('click', startGame);
 
-$answerInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') onAnswer();
+document.getElementById('answer-form').addEventListener('submit', e => {
+  e.preventDefault();
+  onAnswer();
 });
 
 // prevent negative numbers & letters on mobile
