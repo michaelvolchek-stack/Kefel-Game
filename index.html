@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>לוח הכפל עד 15 — משחק לאיתן</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1b36;
+      --card: #1a2d55;
+      --accent: #f5c518;
+      --green: #2ecc71;
+      --red: #e74c3c;
+      --text: #ffffff;
+      --muted: #8899bb;
+      --radius: 20px;
+    }
+
+    body {
+      font-family: 'Rubik', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* ===== OVERLAY SCREENS ===== */
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      z-index: 100;
+      gap: 28px;
+      padding: 24px;
+      text-align: center;
+      transition: opacity 0.4s;
+    }
+    .screen.hidden { opacity: 0; pointer-events: none; }
+
+    .screen-title {
+      font-size: clamp(2rem, 8vw, 3.5rem);
+      font-weight: 900;
+      color: var(--accent);
+      line-height: 1.1;
+    }
+    .screen-sub {
+      font-size: clamp(1rem, 3vw, 1.3rem);
+      color: var(--muted);
+      max-width: 440px;
+    }
+
+    .btn {
+      background: var(--accent);
+      color: #0f1b36;
+      border: none;
+      border-radius: 50px;
+      padding: 16px 48px;
+      font-family: 'Rubik', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 4px 20px rgba(245,197,24,0.35);
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(245,197,24,0.5); }
+    .btn:active { transform: scale(0.97); }
+
+    /* ===== GAME WRAPPER ===== */
+    #game-wrapper {
+      width: 100%;
+      max-width: 520px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ===== HEADER ===== */
+    .hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .lives {
+      display: flex;
+      gap: 6px;
+      font-size: 1.7rem;
+    }
+    .heart { transition: transform 0.2s; }
+    .heart.lost { opacity: 0.2; transform: scale(0.8); }
+
+    .score-box {
+      text-align: center;
+    }
+    .score-label { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+    .score-val { font-size: 1.8rem; font-weight: 900; color: var(--accent); line-height: 1; }
+
+    .streak-box {
+      text-align: center;
+      min-width: 72px;
+    }
+    .streak-label { font-size: 0.75rem; color: var(--muted); }
+    .streak-val { font-size: 1.5rem; font-weight: 700; color: var(--text); line-height: 1; }
+    .streak-val.active { color: #ff9f43; }
+
+    /* ===== QUESTION CARD ===== */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 36px 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 180px; height: 180px;
+      border-radius: 50%;
+      background: rgba(245,197,24,0.05);
+    }
+
+    .q-counter { font-size: 0.85rem; color: var(--muted); }
+
+    .question-text {
+      font-size: clamp(2.8rem, 12vw, 5rem);
+      font-weight: 900;
+      letter-spacing: -1px;
+      line-height: 1;
+    }
+
+    .answer-input {
+      background: rgba(255,255,255,0.08);
+      border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 14px;
+      color: var(--text);
+      font-family: 'Rubik', sans-serif;
+      font-size: 2rem;
+      font-weight: 700;
+      text-align: center;
+      width: 160px;
+      padding: 12px 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .answer-input:focus { border-color: var(--accent); }
+    .answer-input::placeholder { color: rgba(255,255,255,0.2); }
+
+    .feedback-msg {
+      font-size: 1.1rem;
+      font-weight: 600;
+      min-height: 1.5em;
+      transition: opacity 0.3s;
+    }
+    .feedback-msg.correct { color: var(--green); }
+    .feedback-msg.wrong   { color: var(--red); }
+    .feedback-msg.timeout { color: var(--accent); }
+
+    /* ===== TIMER BAR ===== */
+    .timer-wrap {
+      background: rgba(255,255,255,0.08);
+      border-radius: 99px;
+      height: 10px;
+      overflow: hidden;
+    }
+    .timer-bar {
+      height: 100%;
+      border-radius: 99px;
+      background: var(--green);
+      transition: background 0.5s;
+      transform-origin: right;
+    }
+
+    /* ===== CARD ANIMATIONS ===== */
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%      { transform: translateX(-10px); }
+      40%      { transform: translateX(10px); }
+      60%      { transform: translateX(-8px); }
+      80%      { transform: translateX(8px); }
+    }
+    @keyframes pop {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(1.06); }
+      100% { transform: scale(1); }
+    }
+    .card.shake { animation: shake 0.4s ease; }
+    .card.pop   { animation: pop   0.3s ease; }
+
+    /* flash overlay inside card */
+    .card-flash {
+      position: absolute;
+      inset: 0;
+      border-radius: var(--radius);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.08s;
+    }
+    .card-flash.green { background: rgba(46,204,113,0.18); }
+    .card-flash.red   { background: rgba(231,76,60,0.22); }
+    .card-flash.show  { opacity: 1; }
+
+    /* ===== CONFETTI ===== */
+    .confetti-piece {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      pointer-events: none;
+      z-index: 200;
+    }
+
+    /* ===== END SCREEN EXTRAS ===== */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      width: 100%;
+      max-width: 380px;
+    }
+    .stat-card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 18px 12px;
+      text-align: center;
+    }
+    .stat-num { font-size: 2rem; font-weight: 900; color: var(--accent); }
+    .stat-lbl { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+
+    .weak-list {
+      font-size: 0.95rem;
+      color: var(--muted);
+      line-height: 1.9;
+      max-width: 380px;
+    }
+    .weak-list span { color: var(--red); font-weight: 600; }
+
+    /* stars */
+    .stars { font-size: 2.5rem; letter-spacing: 4px; }
+  </style>
+</head>
+<body>
+
+<!-- ===== START SCREEN ===== -->
+<div class="screen" id="start-screen">
+  <div class="screen-title">✖️ לוח הכפל<br>עד 15</div>
+  <div class="screen-sub">20 שאלות, 10 שניות לכל שאלה.<br>3 חיים — תכנן טוב!</div>
+  <button class="btn" id="start-btn">בואו נתחיל! 🚀</button>
+</div>
+
+<!-- ===== GAME ===== -->
+<div id="game-wrapper" style="display:none;">
+  <div class="hdr">
+    <div class="lives" id="lives-display"></div>
+    <div class="score-box">
+      <div class="score-label">ניקוד</div>
+      <div class="score-val" id="score-val">0</div>
+    </div>
+    <div class="streak-box">
+      <div class="streak-label">רצף 🔥</div>
+      <div class="streak-val" id="streak-val">0</div>
+    </div>
+  </div>
+
+  <div class="card" id="question-card">
+    <div class="card-flash" id="card-flash"></div>
+    <div class="q-counter" id="q-counter">שאלה 1 מתוך 20</div>
+    <div class="question-text" id="question-text">? × ? = ?</div>
+    <input class="answer-input" id="answer-input" type="number" inputmode="numeric" placeholder="?" autocomplete="off" />
+    <div class="feedback-msg" id="feedback-msg"></div>
+  </div>
+
+  <div class="timer-wrap">
+    <div class="timer-bar" id="timer-bar" style="width:100%"></div>
+  </div>
+</div>
+
+<!-- ===== END SCREEN ===== -->
+<div class="screen hidden" id="end-screen">
+  <div class="stars" id="end-stars"></div>
+  <div class="screen-title" id="end-title">כל הכבוד!</div>
+  <div class="stat-grid" id="stat-grid"></div>
+  <div class="weak-list" id="weak-list"></div>
+  <button class="btn" id="replay-btn">שחק שוב 🔄</button>
+</div>
+
+<script>
+// ============================================================
+//  CONFIG
+// ============================================================
+const TOTAL_QUESTIONS = 20;
+const TIME_PER_Q      = 10;   // seconds
+const LIVES           = 3;
+const STREAK_BONUS_AT = 3;    // streak multiplier kicks in at this count
+const BASE_SCORE      = 10;
+const SPEED_BONUS_MAX = 5;
+const MAX_NUM         = 15;
+
+// ============================================================
+//  AUDIO ENGINE (Web Audio API — no files needed)
+// ============================================================
+const Audio = (() => {
+  let ctx = null;
+  const get = () => { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); return ctx; };
+
+  function tone(freq, type, gain, start, dur) {
+    const c = get();
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.connect(g); g.connect(c.destination);
+    o.type = type;
+    o.frequency.setValueAtTime(freq, c.currentTime + start);
+    g.gain.setValueAtTime(gain, c.currentTime + start);
+    g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + start + dur);
+    o.start(c.currentTime + start);
+    o.stop(c.currentTime + start + dur + 0.01);
+  }
+
+  return {
+    correct() {
+      tone(523, 'sine', 0.3, 0,    0.12);
+      tone(784, 'sine', 0.3, 0.12, 0.18);
+    },
+    wrong() {
+      tone(220, 'sawtooth', 0.2, 0,    0.1);
+      tone(180, 'sawtooth', 0.2, 0.1,  0.2);
+    },
+    tick() {
+      tone(880, 'sine', 0.15, 0, 0.08);
+    },
+    levelUp() {
+      [523,659,784,1047].forEach((f,i) => tone(f,'sine',0.25,i*0.1,0.15));
+    }
+  };
+})();
+
+// ============================================================
+//  QUESTION ENGINE — weighted random (misses asked more often)
+// ============================================================
+const QuestionEngine = (() => {
+  const weights = {};   // key = "a,b", value = weight (higher = shown more)
+  const misses  = {};   // key = "a,b", total misses count
+
+  function key(a, b) { return a <= b ? `${a},${b}` : `${b},${a}`; }
+
+  function init() {
+    for (let a = 1; a <= MAX_NUM; a++)
+      for (let b = a; b <= MAX_NUM; b++)
+        weights[key(a,b)] = 1;
+  }
+
+  function pick() {
+    const keys = Object.keys(weights);
+    const total = keys.reduce((s, k) => s + weights[k], 0);
+    let r = Math.random() * total;
+    for (const k of keys) { r -= weights[k]; if (r <= 0) return k; }
+    return keys[keys.length - 1];
+  }
+
+  function next() {
+    const k = pick();
+    const [a, b] = k.split(',').map(Number);
+    // randomly swap so presentation order varies
+    return Math.random() < 0.5 ? { a, b, ans: a * b } : { a: b, b: a, ans: a * b };
+  }
+
+  function recordMiss(a, b) {
+    const k = key(a, b);
+    weights[k] = Math.min(weights[k] + 2, 10);
+    misses[k] = (misses[k] || 0) + 1;
+  }
+
+  function recordHit(a, b) {
+    const k = key(a, b);
+    weights[k] = Math.max(weights[k] - 0.5, 1);
+  }
+
+  function weakest(n = 5) {
+    return Object.entries(misses)
+      .filter(([,v]) => v > 0)
+      .sort(([,a],[,b]) => b - a)
+      .slice(0, n)
+      .map(([k, cnt]) => {
+        const [x, y] = k.split(',').map(Number);
+        return { x, y, cnt };
+      });
+  }
+
+  init();
+  return { next, recordMiss, recordHit, weakest };
+})();
+
+// ============================================================
+//  CONFETTI
+// ============================================================
+function burst(x, y) {
+  const colors = ['#f5c518','#2ecc71','#e74c3c','#3498db','#9b59b6','#ff9f43'];
+  for (let i = 0; i < 28; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.cssText = `
+      background:${colors[i % colors.length]};
+      left:${x}px; top:${y}px;
+      border-radius:${Math.random() > 0.5 ? '50%' : '2px'};
+    `;
+    document.body.appendChild(el);
+    const angle  = (Math.random() * 360) * (Math.PI / 180);
+    const speed  = 120 + Math.random() * 200;
+    const dx     = Math.cos(angle) * speed;
+    const dy     = Math.sin(angle) * speed - 180;
+    const rotate = Math.random() * 720 - 360;
+    el.animate([
+      { transform: `translate(0,0) rotate(0deg)`, opacity: 1 },
+      { transform: `translate(${dx}px,${dy}px) rotate(${rotate}deg)`, opacity: 0 }
+    ], { duration: 700 + Math.random() * 400, easing: 'cubic-bezier(0,0.9,0.57,1)', fill: 'forwards' })
+      .onfinish = () => el.remove();
+  }
+}
+
+// ============================================================
+//  GAME STATE
+// ============================================================
+let state = {};
+
+function resetState() {
+  state = {
+    lives:      LIVES,
+    score:      0,
+    streak:     0,
+    qIndex:     0,
+    current:    null,
+    timerStart: null,
+    rafId:      null,
+    answered:   false,
+    totalCorrect: 0,
+  };
+}
+
+// ============================================================
+//  DOM REFS
+// ============================================================
+const $startScreen  = document.getElementById('start-screen');
+const $endScreen    = document.getElementById('end-screen');
+const $gameWrapper  = document.getElementById('game-wrapper');
+const $startBtn     = document.getElementById('start-btn');
+const $replayBtn    = document.getElementById('replay-btn');
+const $livesDisplay = document.getElementById('lives-display');
+const $scoreVal     = document.getElementById('score-val');
+const $streakVal    = document.getElementById('streak-val');
+const $qCounter     = document.getElementById('q-counter');
+const $questionText = document.getElementById('question-text');
+const $answerInput  = document.getElementById('answer-input');
+const $feedbackMsg  = document.getElementById('feedback-msg');
+const $timerBar     = document.getElementById('timer-bar');
+const $card         = document.getElementById('question-card');
+const $cardFlash    = document.getElementById('card-flash');
+const $endStars     = document.getElementById('end-stars');
+const $endTitle     = document.getElementById('end-title');
+const $statGrid     = document.getElementById('stat-grid');
+const $weakList     = document.getElementById('weak-list');
+
+// ============================================================
+//  UI HELPERS
+// ============================================================
+function renderLives() {
+  $livesDisplay.innerHTML = Array.from({ length: LIVES }, (_, i) =>
+    `<span class="heart ${i >= state.lives ? 'lost' : ''}">❤️</span>`
+  ).join('');
+}
+
+function renderScore() { $scoreVal.textContent = state.score; }
+
+function renderStreak() {
+  $streakVal.textContent = state.streak;
+  $streakVal.className = 'streak-val' + (state.streak >= STREAK_BONUS_AT ? ' active' : '');
+}
+
+function flashCard(color) {
+  $cardFlash.className = `card-flash ${color} show`;
+  setTimeout(() => $cardFlash.className = 'card-flash', 200);
+}
+
+function animateCard(cls) {
+  $card.classList.remove(cls);
+  void $card.offsetWidth;
+  $card.classList.add(cls);
+  $card.addEventListener('animationend', () => $card.classList.remove(cls), { once: true });
+}
+
+function setFeedback(msg, cls) {
+  $feedbackMsg.textContent = msg;
+  $feedbackMsg.className = `feedback-msg ${cls}`;
+}
+
+function setTimerColor(ratio) {
+  if      (ratio > 0.5) $timerBar.style.background = 'var(--green)';
+  else if (ratio > 0.25) $timerBar.style.background = '#f39c12';
+  else                   $timerBar.style.background = 'var(--red)';
+}
+
+// ============================================================
+//  TIMER
+// ============================================================
+function startTimer() {
+  state.timerStart = performance.now();
+  state.answered   = false;
+  cancelAnimationFrame(state.rafId);
+
+  let warnedAt3 = false;
+
+  function tick(now) {
+    const elapsed = (now - state.timerStart) / 1000;
+    const ratio   = Math.max(0, 1 - elapsed / TIME_PER_Q);
+    $timerBar.style.width = (ratio * 100) + '%';
+    setTimerColor(ratio);
+
+    if (!warnedAt3 && elapsed >= TIME_PER_Q - 3) {
+      warnedAt3 = true;
+      Audio.tick();
+    }
+
+    if (elapsed >= TIME_PER_Q) {
+      onTimeout();
+      return;
+    }
+    state.rafId = requestAnimationFrame(tick);
+  }
+  state.rafId = requestAnimationFrame(tick);
+}
+
+function stopTimer() { cancelAnimationFrame(state.rafId); }
+
+// ============================================================
+//  QUESTION FLOW
+// ============================================================
+function nextQuestion() {
+  if (state.qIndex >= TOTAL_QUESTIONS) { endGame(); return; }
+
+  state.current = QuestionEngine.next();
+  $qCounter.textContent = `שאלה ${state.qIndex + 1} מתוך ${TOTAL_QUESTIONS}`;
+  $questionText.textContent = `${state.current.a} × ${state.current.b} = ?`;
+  $answerInput.value = '';
+  setFeedback('', '');
+  $answerInput.focus();
+  startTimer();
+}
+
+function onAnswer() {
+  if (state.answered) return;
+  const val = parseInt($answerInput.value, 10);
+  if (isNaN(val)) return;
+  state.answered = true;
+  stopTimer();
+
+  const { a, b, ans } = state.current;
+  const elapsed = (performance.now() - state.timerStart) / 1000;
+
+  if (val === ans) {
+    // CORRECT
+    const speedBonus = Math.round(SPEED_BONUS_MAX * Math.max(0, 1 - elapsed / TIME_PER_Q));
+    const multiplier = state.streak >= STREAK_BONUS_AT ? 2 : 1;
+    const points     = (BASE_SCORE + speedBonus) * multiplier;
+    state.score   += points;
+    state.streak  += 1;
+    state.totalCorrect += 1;
+    QuestionEngine.recordHit(a, b);
+
+    const suffix = multiplier > 1 ? ` (×${multiplier} רצף!)` : speedBonus > 0 ? ` (+${speedBonus} מהירות)` : '';
+    setFeedback(`✅ נכון! +${points}${suffix}`, 'correct');
+    flashCard('green');
+    animateCard('pop');
+    Audio.correct();
+
+    // confetti from card center
+    const rect = $card.getBoundingClientRect();
+    burst(rect.left + rect.width / 2, rect.top + rect.height / 2);
+
+  } else {
+    // WRONG
+    state.lives  -= 1;
+    state.streak  = 0;
+    QuestionEngine.recordMiss(a, b);
+
+    setFeedback(`❌ התשובה הנכונה היא ${ans}`, 'wrong');
+    flashCard('red');
+    animateCard('shake');
+    Audio.wrong();
+    renderLives();
+
+    if (state.lives <= 0) {
+      setTimeout(endGame, 800);
+      return;
+    }
+  }
+
+  renderScore();
+  renderStreak();
+
+  state.qIndex += 1;
+  setTimeout(nextQuestion, 1200);
+}
+
+function onTimeout() {
+  if (state.answered) return;
+  state.answered = true;
+  state.lives   -= 1;
+  state.streak   = 0;
+  QuestionEngine.recordMiss(state.current.a, state.current.b);
+  setFeedback(`⏰ נגמר הזמן! התשובה: ${state.current.ans}`, 'timeout');
+  flashCard('red');
+  Audio.wrong();
+  renderLives();
+  renderStreak();
+
+  if (state.lives <= 0) {
+    setTimeout(endGame, 900);
+    return;
+  }
+  state.qIndex += 1;
+  setTimeout(nextQuestion, 1400);
+}
+
+// ============================================================
+//  GAME START / END
+// ============================================================
+function startGame() {
+  resetState();
+  $startScreen.classList.add('hidden');
+  $endScreen.classList.add('hidden');
+  $gameWrapper.style.display = 'flex';
+  renderLives();
+  renderScore();
+  renderStreak();
+  nextQuestion();
+}
+
+function endGame() {
+  stopTimer();
+  $gameWrapper.style.display = 'none';
+  $endScreen.classList.remove('hidden');
+
+  // Stars rating
+  const accuracy = state.totalCorrect / TOTAL_QUESTIONS;
+  const stars = accuracy >= 0.9 ? '⭐⭐⭐' : accuracy >= 0.7 ? '⭐⭐' : '⭐';
+  $endStars.textContent = stars;
+
+  if (state.lives <= 0) {
+    $endTitle.textContent = 'אוף, נגמרו החיים 😅';
+  } else if (accuracy >= 0.9) {
+    $endTitle.textContent = 'מדהים! 🏆';
+    Audio.levelUp();
+  } else if (accuracy >= 0.7) {
+    $endTitle.textContent = 'כל הכבוד! 👏';
+  } else {
+    $endTitle.textContent = 'ממשיכים להתאמן! 💪';
+  }
+
+  $statGrid.innerHTML = `
+    <div class="stat-card"><div class="stat-num">${state.score}</div><div class="stat-lbl">ניקוד</div></div>
+    <div class="stat-card"><div class="stat-num">${state.totalCorrect}/${TOTAL_QUESTIONS}</div><div class="stat-lbl">תשובות נכונות</div></div>
+    <div class="stat-card"><div class="stat-num">${Math.round(accuracy * 100)}%</div><div class="stat-lbl">דיוק</div></div>
+    <div class="stat-card"><div class="stat-num">${state.lives}</div><div class="stat-lbl">חיים שנשארו</div></div>
+  `;
+
+  const weak = QuestionEngine.weakest(5);
+  if (weak.length > 0) {
+    $weakList.innerHTML = '🔁 כדאי לחזור על: ' +
+      weak.map(w => `<span>${w.x}×${w.y}</span>`).join(' · ');
+  } else {
+    $weakList.innerHTML = '🎯 שלמות! אין חולשות למצוא.';
+  }
+}
+
+// ============================================================
+//  EVENTS
+// ============================================================
+$startBtn.addEventListener('click', startGame);
+$replayBtn.addEventListener('click', startGame);
+
+$answerInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') onAnswer();
+});
+
+// prevent negative numbers & letters on mobile
+$answerInput.addEventListener('input', () => {
+  $answerInput.value = $answerInput.value.replace(/[^0-9]/g, '');
+});
+</script>
+</body>
+</html>
