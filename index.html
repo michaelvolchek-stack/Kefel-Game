@@ -284,6 +284,36 @@
 
     /* stars */
     .stars { font-size: 2.5rem; letter-spacing: 4px; }
+
+    /* ===== HISTORY ===== */
+    .history-title {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    .history-table {
+      width: 100%;
+      max-width: 380px;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    .history-table th {
+      color: var(--muted);
+      font-weight: 600;
+      padding: 4px 12px;
+      text-align: center;
+    }
+    .history-table td {
+      background: var(--card);
+      padding: 8px 12px;
+      text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .history-table tbody tr:first-child td {
+      color: var(--accent);
+      font-weight: 700;
+    }
   </style>
 </head>
 <body>
@@ -331,6 +361,7 @@
   <div class="screen-title" id="end-title">כל הכבוד!</div>
   <div class="stat-grid" id="stat-grid"></div>
   <div class="weak-list" id="weak-list"></div>
+  <div id="history-section"></div>
   <button class="btn" id="replay-btn">שחק שוב 🔄</button>
 </div>
 
@@ -345,6 +376,7 @@ const STREAK_BONUS_AT = 3;    // streak multiplier kicks in at this count
 const BASE_SCORE      = 10;
 const SPEED_BONUS_MAX = 5;
 const MAX_NUM         = 15;
+const PLAYER_KEY      = 'itamar';
 
 // ============================================================
 //  AUDIO ENGINE (Web Audio API — no files needed)
@@ -684,13 +716,44 @@ function startGame() {
   nextQuestion();
 }
 
+// ============================================================
+//  HISTORY (localStorage)
+// ============================================================
+function saveResult(score, accuracy) {
+  const key = `kefel_history_${PLAYER_KEY}`;
+  const history = JSON.parse(localStorage.getItem(key) || '[]');
+  history.unshift({ score, accuracy: Math.round(accuracy * 100), date: new Date().toLocaleDateString('he-IL') });
+  localStorage.setItem(key, JSON.stringify(history.slice(0, 5)));
+}
+
+function getHistory() {
+  return JSON.parse(localStorage.getItem(`kefel_history_${PLAYER_KEY}`) || '[]');
+}
+
+function renderHistory() {
+  const history = getHistory();
+  const $el = document.getElementById('history-section');
+  if (history.length < 2) { $el.innerHTML = ''; return; }
+  const rows = history.map((r, i) => {
+    const trend = i === 0 ? '' : r.score > history[i-1].score ? ' 📈' : r.score < history[i-1].score ? ' 📉' : '';
+    return `<tr><td>${r.date}</td><td>${r.score}${i === 0 ? trend : ''}</td><td>${r.accuracy}%</td></tr>`;
+  });
+  $el.innerHTML = `
+    <div class="history-title">🕓 תוצאות אחרונות</div>
+    <table class="history-table">
+      <thead><tr><th>תאריך</th><th>ניקוד</th><th>דיוק</th></tr></thead>
+      <tbody>${rows.join('')}</tbody>
+    </table>`;
+}
+
 function endGame() {
   stopTimer();
   $gameWrapper.style.display = 'none';
   $endScreen.classList.remove('hidden');
 
-  // Stars rating
   const accuracy = state.totalCorrect / TOTAL_QUESTIONS;
+  saveResult(state.score, accuracy);
+
   const stars = accuracy >= 0.9 ? '⭐⭐⭐' : accuracy >= 0.7 ? '⭐⭐' : '⭐';
   $endStars.textContent = stars;
 
@@ -719,6 +782,8 @@ function endGame() {
   } else {
     $weakList.innerHTML = '🎯 שלמות! אין חולשות למצוא.';
   }
+
+  renderHistory();
 }
 
 // ============================================================
